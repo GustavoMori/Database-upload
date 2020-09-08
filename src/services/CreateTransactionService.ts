@@ -17,22 +17,35 @@ interface Request {
 
 class CreateTransactionService {
   public async execute({ title, value, type, category}:Request ): Promise<Transaction> {
-    const transactionRepository = getCustomRepository(TransactionsRepository)
+    const transactionsRepository = getCustomRepository(TransactionsRepository)
 
-    // const checkTransactionExist = await transactionRepository.findOne({
-    //   where: { category }
-    // });
-    // if (!checkTransactionExist) {
-    //   throw new AppError('Category is invalid.')
-    // }
+    const categoryRepository = getRepository(Category)
 
-    const transaction = transactionRepository.create({
+    const { total } = await transactionsRepository.getBalance();
+    if(type === 'outcome' && total < value ){
+      throw new AppError('Balance insufficient.')
+    }
+
+    let checkCategoryTransactionExist = await categoryRepository.findOne({
+      where: { title: category },
+    });
+
+    if (!checkCategoryTransactionExist){
+      checkCategoryTransactionExist = categoryRepository.create({
+        title: category
+      })
+      await categoryRepository.save(checkCategoryTransactionExist)
+    }
+
+    const transaction = transactionsRepository.create({
       title,
       value,
       type,
+      category: checkCategoryTransactionExist,
     })
 
-    await transactionRepository.save(transaction)
+    await transactionsRepository.save(transaction);
+
     return transaction;
   }
 }
